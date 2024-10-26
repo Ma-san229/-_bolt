@@ -1,0 +1,155 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  name          String
+  passwordHash  String
+  department    String?
+  role          Role      @default(USER)
+  pointsBalance Int       @default(0)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  lastLoginAt   DateTime?
+
+  // Relations
+  sentMessages     Message[]        @relation("SentMessages")
+  receivedMessages Message[]        @relation("ReceivedMessages")
+  likes           Like[]
+  transactions    PointTransaction[]
+  notifications   Notification[]
+
+  @@map("users")
+}
+
+model Message {
+  id          String    @id @default(uuid())
+  senderId    String
+  recipientId String
+  content     String
+  points      Int
+  templateId  String?
+  stampId     String?
+  imageUrl    String?
+  isAnonymous Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  scheduledFor DateTime?
+  deliveredAt DateTime?
+
+  // Relations
+  sender    User     @relation("SentMessages", fields: [senderId], references: [id])
+  recipient User     @relation("ReceivedMessages", fields: [recipientId], references: [id])
+  template  Template? @relation(fields: [templateId], references: [id])
+  stamp     Stamp?    @relation(fields: [stampId], references: [id])
+  likes     Like[]
+
+  @@map("messages")
+}
+
+model Like {
+  id        String   @id @default(uuid())
+  messageId String
+  userId    String
+  createdAt DateTime @default(now())
+
+  // Relations
+  message Message @relation(fields: [messageId], references: [id])
+  user    User    @relation(fields: [userId], references: [id])
+
+  @@unique([messageId, userId])
+  @@map("likes")
+}
+
+model PointTransaction {
+  id            String      @id @default(uuid())
+  userId        String
+  amount        Int
+  type          TransactionType
+  referenceId   String?
+  referenceType String?
+  description   String?
+  createdAt     DateTime    @default(now())
+
+  // Relations
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("point_transactions")
+}
+
+model Template {
+  id          String    @id @default(uuid())
+  name        String
+  description String?
+  designData  String    // SQLiteではJSONタイプがサポートされていないため、String型に変更
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  messages    Message[]
+
+  @@map("message_templates")
+}
+
+model Stamp {
+  id        String    @id @default(uuid())
+  name      String
+  emoji     String
+  category  String?
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  messages  Message[]
+
+  @@map("stamps")
+}
+
+model Department {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("departments")
+}
+
+model PointSetting {
+  id           String   @id @default(uuid())
+  settingKey   String   @unique
+  settingValue Int
+  description  String?
+  updatedAt    DateTime @updatedAt
+
+  @@map("point_settings")
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  type      String
+  title     String
+  content   String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  // Relations
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("notifications")
+}
+
+enum Role {
+  ADMIN
+  USER
+}
+
+enum TransactionType {
+  RECEIVED
+  SENT
+  SYSTEM
+}
